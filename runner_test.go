@@ -14,6 +14,9 @@ func TestRunGo(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := New(cli)
+	if err := runner.AddLanguage("go", Go{}); err != nil {
+		t.Fatal(err)
+	}
 	tests := []struct {
 		source string
 		stdout []byte

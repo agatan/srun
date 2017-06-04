@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -23,13 +24,20 @@ type Runner struct {
 }
 
 func New(client *client.Client) *Runner {
-	runner := &Runner{client: client, languages: map[string]Language{}}
-	runner.AddLanguage("go", Go{})
-	return runner
+	return &Runner{client: client, languages: map[string]Language{}}
 }
 
-func (r *Runner) AddLanguage(name string, lang Language) {
+func (r *Runner) AddLanguage(name string, lang Language) error {
+	res, err := r.client.ImagePull(context.Background(), lang.BaseImage(), types.ImagePullOptions{})
+	if err != nil {
+		return errors.Wrapf(err, "failed to setup docker image for %q", name)
+	}
+	_, err = io.Copy(ioutil.Discard, res)
+	if err != nil {
+		return errors.Wrapf(err, "failed to setup docker image for %q", name)
+	}
 	r.languages[name] = lang
+	return nil
 }
 
 func (r *Runner) SupportedLanguages() []string {

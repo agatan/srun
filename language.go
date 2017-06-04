@@ -15,6 +15,7 @@ import (
 
 type Language interface {
 	CreateContainer(ctx context.Context, cli *client.Client, code string) (string, error)
+	BaseImage() string
 }
 
 type Go struct{}
@@ -41,6 +42,10 @@ func (Go) CreateContainer(ctx context.Context, cli *client.Client, code string) 
 	}
 
 	return body.ID, nil
+}
+
+func (Go) BaseImage() string {
+	return "golang:1.8-alpine"
 }
 
 func copyToContainer(ctx context.Context, cli *client.Client, id string, distdir string, distname string, content string) error {
