@@ -13,9 +13,15 @@ import (
 	"golang.org/x/net/context"
 )
 
+var Languages map[string]Language = map[string]Language{
+	"go-1.8":   Go,
+	"ruby-2.4": Ruby,
+}
+
 type Language interface {
 	CreateContainer(ctx context.Context, cli *client.Client, code string) (string, error)
 	BaseImage() string
+	Extensions() []string
 }
 
 var Go Language = golang{}
@@ -50,6 +56,10 @@ func (golang) BaseImage() string {
 	return "golang:1.8-alpine"
 }
 
+func (golang) Extensions() []string {
+	return []string{".go"}
+}
+
 var Ruby Language = ruby{}
 
 type ruby struct{}
@@ -80,6 +90,10 @@ func (ruby) CreateContainer(ctx context.Context, cli *client.Client, code string
 
 func (ruby) BaseImage() string {
 	return "ruby:2.4.1-alpine"
+}
+
+func (ruby) Extensions() []string {
+	return []string{".rb"}
 }
 
 func copyToContainer(ctx context.Context, cli *client.Client, id string, distdir string, distname string, content string) error {
