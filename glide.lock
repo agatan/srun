@@ -1,5 +1,5 @@
-hash: cdb0763c71a094741805957f662b7addc5a8335d9a4fe14b5ab92a545fb4c0a2
-updated: 2017-06-04T14:01:42.036546066+09:00
+hash: ffbd27ea6ba3d07f67a6965b991f7670671fa5fa45c602a34141f1495c3b6a90
+updated: 2017-06-04T15:49:47.704129196+09:00
 imports:
 - name: github.com/docker/distribution
   version: 1e2f10eb65743fed02f573d31a4587de09afb20e
@@ -53,6 +53,10 @@ imports:
   - context
   - context/ctxhttp
   - proxy
+- name: golang.org/x/sync
+  version: f52d1811a62927559de87708c8913c1650ce4f26
+  subpackages:
+  - errgroup
 - name: golang.org/x/sys
   version: f3918c30c5c2cb527c0b071a27c35120a6c0719a
   subpackages:

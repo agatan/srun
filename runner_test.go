@@ -3,6 +3,7 @@ package srun
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/docker/docker/client"
@@ -14,9 +15,7 @@ func TestRunGo(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := New(cli)
-	if err := runner.AddLanguage("go", Go{}); err != nil {
-		t.Fatal(err)
-	}
+	runner.AddLanguage("go", Go{})
 	tests := []struct {
 		source string
 		stdout []byte
@@ -57,20 +56,24 @@ func TestRunGo(t *testing.T) {
 		`, nil, nil, 37},
 	}
 
-	for _, test := range tests {
-		ctx := context.Background()
-		res, err := runner.Run(ctx, "go", test.source)
-		if err != nil {
-			t.Fatalf("should not be error for %v but: %+v", test.source, err)
-		}
-		if res.ExitStatus != test.exit {
-			t.Errorf("exit status should be %d, but got %d", test.exit, res.ExitStatus)
-		}
-		if !bytes.Equal(res.Stdout, test.stdout) {
-			t.Errorf("stdout should be %q, but %q", string(test.stdout), string(res.Stdout))
-		}
-		if !bytes.Equal(res.Stderr, test.stderr) {
-			t.Errorf("stderr should be %q, but %q", string(test.stderr), string(res.Stderr))
-		}
+	for i, test := range tests {
+		test := test // ref: https://golang.org/doc/faq#closures_and_goroutines
+		t.Run(fmt.Sprintf("running %d", i), func(st *testing.T) {
+			st.Parallel()
+			ctx := context.Background()
+			res, err := runner.Run(ctx, "go", test.source)
+			if err != nil {
+				st.Fatalf("should not be error for %v but: %+v", test.source, err)
+			}
+			if res.ExitStatus != test.exit {
+				st.Errorf("exit status should be %d, but got %d", test.exit, res.ExitStatus)
+			}
+			if !bytes.Equal(res.Stdout, test.stdout) {
+				st.Errorf("stdout should be %q, but %q", string(test.stdout), string(res.Stdout))
+			}
+			if !bytes.Equal(res.Stderr, test.stderr) {
+				st.Errorf("stderr should be %q, but %q", string(test.stderr), string(res.Stderr))
+			}
+		})
 	}
 }

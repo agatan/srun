@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
@@ -27,14 +29,13 @@ func New(client *client.Client) *Runner {
 	return &Runner{client: client, languages: map[string]Language{}}
 }
 
-func (r *Runner) AddLanguage(name string, lang Language) error {
-	res, err := r.client.ImagePull(context.Background(), lang.BaseImage(), types.ImagePullOptions{})
-	if err != nil {
-		return errors.Wrapf(err, "failed to setup docker image for %q", name)
-	}
-	_, err = io.Copy(ioutil.Discard, res)
-	if err != nil {
-		return errors.Wrapf(err, "failed to setup docker image for %q", name)
+func (r *Runner) AddLanguage(name string, lang Language) {
+	r.languages[name] = lang
+}
+
+func (r *Runner) EnsureLanguage(ctx context.Context, name string, lang Language) error {
+	if err := r.ensureLanguage(ctx, lang); err != nil {
+		return errors.Wrapf(err, "failed to setup %q environment", name)
 	}
 	r.languages[name] = lang
 	return nil
@@ -46,6 +47,29 @@ func (r *Runner) SupportedLanguages() []string {
 		langs = append(langs, k)
 	}
 	return langs
+}
+
+func (r *Runner) Ensure(ctx context.Context) error {
+	var g errgroup.Group
+	for _, lang := range r.languages {
+		lang := lang // ref: https://golang.org/doc/faq#closures_and_goroutines
+		g.Go(func() error {
+			return r.ensureLanguage(ctx, lang)
+		})
+	}
+	return g.Wait()
+}
+
+func (r *Runner) ensureLanguage(ctx context.Context, lang Language) error {
+	res, err := r.client.ImagePull(context.Background(), lang.BaseImage(), types.ImagePullOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to setup docker image")
+	}
+	_, err = io.Copy(ioutil.Discard, res)
+	if err != nil {
+		return errors.Wrap(err, "failed to setup docker image")
+	}
+	return nil
 }
 
 func (r *Runner) Run(ctx context.Context, langName string, source string) (res *Result, err error) {

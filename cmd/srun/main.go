@@ -25,9 +25,7 @@ func run() (err error) {
 		return err
 	}
 	runner := srun.New(cli)
-	if err := runner.AddLanguage("go", srun.Go{}); err != nil {
-		return err
-	}
+	runner.AddLanguage("go", srun.Go{})
 	var f io.Reader
 	if len(os.Args) < 2 {
 		f = os.Stdin
