@@ -7,8 +7,6 @@ import (
 	"io/ioutil"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
@@ -21,43 +19,18 @@ type Result struct {
 }
 
 type Runner struct {
-	client    *client.Client
-	languages map[string]Language
+	client *client.Client
 }
 
 func New(client *client.Client) *Runner {
-	return &Runner{client: client, languages: map[string]Language{}}
-}
-
-func (r *Runner) AddLanguage(name string, lang Language) {
-	r.languages[name] = lang
+	return &Runner{client: client}
 }
 
 func (r *Runner) EnsureLanguage(ctx context.Context, name string, lang Language) error {
 	if err := r.ensureLanguage(ctx, lang); err != nil {
 		return errors.Wrapf(err, "failed to setup %q environment", name)
 	}
-	r.languages[name] = lang
 	return nil
-}
-
-func (r *Runner) SupportedLanguages() []string {
-	langs := make([]string, 0, len(r.languages))
-	for k, _ := range r.languages {
-		langs = append(langs, k)
-	}
-	return langs
-}
-
-func (r *Runner) Ensure(ctx context.Context) error {
-	var g errgroup.Group
-	for _, lang := range r.languages {
-		lang := lang // ref: https://golang.org/doc/faq#closures_and_goroutines
-		g.Go(func() error {
-			return r.ensureLanguage(ctx, lang)
-		})
-	}
-	return g.Wait()
 }
 
 func (r *Runner) ensureLanguage(ctx context.Context, lang Language) error {
@@ -72,12 +45,7 @@ func (r *Runner) ensureLanguage(ctx context.Context, lang Language) error {
 	return nil
 }
 
-func (r *Runner) Run(ctx context.Context, langName string, source string) (res *Result, err error) {
-	lang, ok := r.languages[langName]
-	if !ok {
-		return nil, errors.Errorf("%q is not supported", langName)
-	}
-
+func (r *Runner) Run(ctx context.Context, lang Language, source string) (res *Result, err error) {
 	res = new(Result)
 	containerID, err := lang.CreateContainer(ctx, r.client, source)
 

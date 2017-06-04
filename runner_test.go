@@ -15,7 +15,6 @@ func TestRunGo(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := New(cli)
-	runner.AddLanguage("go", Go)
 	tests := []struct {
 		source string
 		stdout []byte
@@ -61,7 +60,7 @@ func TestRunGo(t *testing.T) {
 		t.Run(fmt.Sprintf("running %d", i), func(st *testing.T) {
 			st.Parallel()
 			ctx := context.Background()
-			res, err := runner.Run(ctx, "go", test.source)
+			res, err := runner.Run(ctx, Go, test.source)
 			if err != nil {
 				st.Fatalf("should not be error for %v but: %+v", test.source, err)
 			}
