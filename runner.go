@@ -1,8 +1,6 @@
 package srun
 
 import (
-	"archive/tar"
-	"bytes"
 	"encoding/binary"
 	"io"
 	"runtime"
@@ -10,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -24,26 +21,11 @@ type Result struct {
 
 func Run(cli *client.Client, source string) (res *Result, err error) {
 	res = new(Result)
-	cmd := []string{"sh", "-c", "go build main.go && ./main"}
 	ctx := context.Background()
-
-	hostcfg := defaultHostConfig()
-	body, err := cli.ContainerCreate(ctx, &container.Config{
-		Image:           "golang:1.8-alpine",
-		Cmd:             cmd,
-		WorkingDir:      "/go/src/app",
-		NetworkDisabled: true,
-	}, hostcfg, &network.NetworkingConfig{}, "")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create container")
-	}
-
-	if err := copyToContainer(ctx, cli, body.ID, "/go/src/app", "main.go", source); err != nil {
-		return nil, err
-	}
+	containerID, err := (Go{}).CreateContainer(ctx, cli, source)
 
 	defer func() {
-		rmerr := cli.ContainerRemove(ctx, body.ID, types.ContainerRemoveOptions{Force: true})
+		rmerr := cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
 		if rmerr != nil && err == nil {
 			err = errors.Wrap(rmerr, "failed to remove container")
 		}
@@ -51,11 +33,11 @@ func Run(cli *client.Client, source string) (res *Result, err error) {
 
 	since := time.Now().Add(-1 * time.Second)
 
-	if err := cli.ContainerStart(ctx, body.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
 		return nil, errors.Wrap(err, "failed to start container")
 	}
 
-	res.Stdout, res.Stderr, err = readLogs(ctx, cli, body.ID, since)
+	res.Stdout, res.Stderr, err = readLogs(ctx, cli, containerID, since)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read logs")
 	}
@@ -64,7 +46,7 @@ func Run(cli *client.Client, source string) (res *Result, err error) {
 	errCh := make(chan error)
 
 	go func() {
-		exit, err := cli.ContainerWait(ctx, body.ID)
+		exit, err := cli.ContainerWait(ctx, containerID)
 		if err != nil {
 			errCh <- err
 		} else {
@@ -91,27 +73,6 @@ func defaultHostConfig() *container.HostConfig {
 	cfg.CPUPeriod = 100000
 	cfg.CPUQuota = 100000 / (int64(runtime.NumCPU()) - 1)
 	return cfg
-}
-
-func copyToContainer(ctx context.Context, cli *client.Client, id string, distdir string, distname string, content string) error {
-	buf := new(bytes.Buffer)
-	tw := tar.NewWriter(buf)
-	hdr := &tar.Header{Name: distname, Mode: 0644, Size: int64(len(content))}
-	if err := tw.WriteHeader(hdr); err != nil {
-		return errors.Wrap(err, "failed to write a tar header")
-	}
-	if _, err := tw.Write([]byte(content)); err != nil {
-		return errors.Wrap(err, "failed to write a tar body")
-	}
-	if err := tw.Close(); err != nil {
-		return errors.Wrap(err, "failed to close tar archive")
-	}
-
-	r := bytes.NewReader(buf.Bytes())
-	if err := cli.CopyToContainer(ctx, id, distdir, r, types.CopyToContainerOptions{AllowOverwriteDirWithFile: true}); err != nil {
-		return errors.Wrap(err, "failed to copy source code")
-	}
-	return nil
 }
 
 func readLogs(ctx context.Context, cli *client.Client, id string, since time.Time) ([]byte, []byte, error) {
