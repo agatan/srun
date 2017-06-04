@@ -22,7 +22,7 @@ func main() {
 
 func run() (err error) {
 	// parse options
-	typ := flag.String("type", "", "type of source code")
+	language := flag.String("language", "", "type of source code")
 	list := flag.Bool("list", false, "list supported languages")
 	pull := flag.Bool("pull", false, "pull target docker image")
 	flag.Parse()
@@ -41,10 +41,10 @@ func run() (err error) {
 	}
 	var lang srun.Language
 
-	if *typ != "" {
-		l, ok := runner.FindLanguageByName(*typ)
+	if *language != "" {
+		l, ok := runner.FindLanguageByName(*language)
 		if !ok {
-			return errors.Errorf("%q is not supported", *typ)
+			return errors.Errorf("%q is not supported", *language)
 		}
 		lang = l
 	}
