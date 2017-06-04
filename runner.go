@@ -1,4 +1,4 @@
-package runner
+package srun
 
 import (
 	"archive/tar"
