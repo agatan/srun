@@ -50,6 +50,38 @@ func (golang) BaseImage() string {
 	return "golang:1.8-alpine"
 }
 
+var Ruby Language = ruby{}
+
+type ruby struct{}
+
+func (ruby) CreateContainer(ctx context.Context, cli *client.Client, code string) (string, error) {
+	cmd := []string{
+		"ruby", "main.rb",
+	}
+	hostcfg := defaultHostConfig()
+	body, err := cli.ContainerCreate(ctx, &container.Config{
+		Image:           "ruby:2.4.1-alpine",
+		Cmd:             cmd,
+		WorkingDir:      "/app",
+		NetworkDisabled: true,
+		OpenStdin:       true,
+		StdinOnce:       true,
+	}, hostcfg, &network.NetworkingConfig{}, "")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create container")
+	}
+
+	if err := copyToContainer(ctx, cli, body.ID, "/app", "main.rb", code); err != nil {
+		return "", err
+	}
+
+	return body.ID, nil
+}
+
+func (ruby) BaseImage() string {
+	return "ruby:2.4.1-alpine"
+}
+
 func copyToContainer(ctx context.Context, cli *client.Client, id string, distdir string, distname string, content string) error {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
