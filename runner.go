@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"io/ioutil"
+	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -19,17 +21,27 @@ type Result struct {
 }
 
 type Runner struct {
-	client *client.Client
+	client    *client.Client
+	languages map[string]Language
 }
 
 func New(client *client.Client) *Runner {
-	return &Runner{client: client}
+	r := &Runner{client: client, languages: map[string]Language{}}
+	for k, v := range Languages {
+		r.AddLanguage(k, v)
+	}
+	return r
+}
+
+func (r *Runner) AddLanguage(name string, lang Language) {
+	r.languages[name] = lang
 }
 
 func (r *Runner) EnsureLanguage(ctx context.Context, name string, lang Language) error {
 	if err := r.ensureLanguage(ctx, lang); err != nil {
 		return errors.Wrapf(err, "failed to setup %q environment", name)
 	}
+	r.AddLanguage(name, lang)
 	return nil
 }
 
@@ -43,6 +55,32 @@ func (r *Runner) ensureLanguage(ctx context.Context, lang Language) error {
 		return errors.Wrap(err, "failed to setup docker image")
 	}
 	return nil
+}
+
+func (r *Runner) Languages() []string {
+	langs := make([]string, 0, len(r.languages))
+	for k, _ := range r.languages {
+		langs = append(langs, k)
+	}
+	sort.Strings(langs)
+	return langs
+}
+
+func (r *Runner) FindLanguageByName(name string) (Language, bool) {
+	l, ok := r.languages[name]
+	return l, ok
+}
+
+func (r *Runner) FindLanguageByExt(filename string) (Language, bool) {
+	fileext := filepath.Ext(filename)
+	for _, lang := range r.languages {
+		for _, ext := range lang.Extensions() {
+			if fileext == ext {
+				return lang, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (r *Runner) Run(ctx context.Context, lang Language, source string) (res *Result, err error) {
