@@ -1,6 +1,7 @@
 package srun
 
 import (
+	"context"
 	"encoding/binary"
 	"io"
 	"runtime"
@@ -10,7 +11,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 )
 
 type Result struct {
@@ -19,13 +19,40 @@ type Result struct {
 	ExitStatus int
 }
 
-func Run(cli *client.Client, source string) (res *Result, err error) {
+type Runner struct {
+	client    *client.Client
+	languages map[string]Language
+}
+
+func New(client *client.Client) *Runner {
+	runner := &Runner{client: client, languages: map[string]Language{}}
+	runner.AddLanguage("go", Go{})
+	return runner
+}
+
+func (r *Runner) AddLanguage(name string, lang Language) {
+	r.languages[name] = lang
+}
+
+func (r *Runner) SupportedLanguages() []string {
+	langs := make([]string, 0, len(r.languages))
+	for k, _ := range r.languages {
+		langs = append(langs, k)
+	}
+	return langs
+}
+
+func (r *Runner) Run(ctx context.Context, langName string, source string) (res *Result, err error) {
+	lang, ok := r.languages[langName]
+	if !ok {
+		return nil, errors.Errorf("%q is not supported", langName)
+	}
+
 	res = new(Result)
-	ctx := context.Background()
-	containerID, err := (Go{}).CreateContainer(ctx, cli, source)
+	containerID, err := lang.CreateContainer(ctx, r.client, source)
 
 	defer func() {
-		rmerr := cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
+		rmerr := r.client.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: true})
 		if rmerr != nil && err == nil {
 			err = errors.Wrap(rmerr, "failed to remove container")
 		}
@@ -33,11 +60,11 @@ func Run(cli *client.Client, source string) (res *Result, err error) {
 
 	since := time.Now().Add(-1 * time.Second)
 
-	if err := cli.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
+	if err := r.client.ContainerStart(ctx, containerID, types.ContainerStartOptions{}); err != nil {
 		return nil, errors.Wrap(err, "failed to start container")
 	}
 
-	res.Stdout, res.Stderr, err = readLogs(ctx, cli, containerID, since)
+	res.Stdout, res.Stderr, err = readLogs(ctx, r.client, containerID, since)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read logs")
 	}
@@ -46,7 +73,7 @@ func Run(cli *client.Client, source string) (res *Result, err error) {
 	errCh := make(chan error)
 
 	go func() {
-		exit, err := cli.ContainerWait(ctx, containerID)
+		exit, err := r.client.ContainerWait(ctx, containerID)
 		if err != nil {
 			errCh <- err
 		} else {

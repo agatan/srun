@@ -2,16 +2,18 @@ package srun
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/docker/docker/client"
 )
 
-func TestRun(t *testing.T) {
+func TestRunGo(t *testing.T) {
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		t.Fatal(err)
 	}
+	runner := New(cli)
 	tests := []struct {
 		source string
 		stdout []byte
@@ -53,7 +55,8 @@ func TestRun(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		res, err := Run(cli, test.source)
+		ctx := context.Background()
+		res, err := runner.Run(ctx, "go", test.source)
 		if err != nil {
 			t.Fatalf("should not be error for %v but: %+v", test.source, err)
 		}
