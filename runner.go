@@ -37,26 +37,6 @@ func (r *Runner) AddLanguage(name string, lang Language) {
 	r.languages[name] = lang
 }
 
-func (r *Runner) EnsureLanguage(ctx context.Context, name string, lang Language) error {
-	if err := r.ensureLanguage(ctx, lang); err != nil {
-		return errors.Wrapf(err, "failed to setup %q environment", name)
-	}
-	r.AddLanguage(name, lang)
-	return nil
-}
-
-func (r *Runner) ensureLanguage(ctx context.Context, lang Language) error {
-	res, err := r.client.ImagePull(context.Background(), lang.BaseImage(), types.ImagePullOptions{})
-	if err != nil {
-		return errors.Wrap(err, "failed to setup docker image")
-	}
-	_, err = io.Copy(ioutil.Discard, res)
-	if err != nil {
-		return errors.Wrap(err, "failed to setup docker image")
-	}
-	return nil
-}
-
 func (r *Runner) Languages() []string {
 	langs := make([]string, 0, len(r.languages))
 	for k, _ := range r.languages {
@@ -81,6 +61,18 @@ func (r *Runner) FindLanguageByExt(filename string) (Language, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (r *Runner) Pull(ctx context.Context, lang Language) error {
+	res, err := r.client.ImagePull(ctx, lang.BaseImage(), types.ImagePullOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to setup docker image")
+	}
+	_, err = io.Copy(ioutil.Discard, res)
+	if err != nil {
+		return errors.Wrap(err, "failed to setup docker image")
+	}
+	return nil
 }
 
 func (r *Runner) Run(ctx context.Context, lang Language, source string) (res *Result, err error) {

@@ -24,6 +24,7 @@ func run() (err error) {
 	// parse options
 	typ := flag.String("type", "", "type of source code")
 	list := flag.Bool("list", false, "list supported languages")
+	pull := flag.Bool("pull", false, "pull target docker image")
 	flag.Parse()
 
 	cli, err := client.NewEnvClient()
@@ -76,6 +77,12 @@ func run() (err error) {
 			}
 		}
 	}()
+
+	if *pull {
+		if err := runner.Pull(context.Background(), lang); err != nil {
+			return err
+		}
+	}
 
 	source, err := ioutil.ReadAll(f)
 	if err != nil {
