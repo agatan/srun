@@ -18,9 +18,11 @@ type Language interface {
 	BaseImage() string
 }
 
-type Go struct{}
+var Go Language = golang{}
 
-func (Go) CreateContainer(ctx context.Context, cli *client.Client, code string) (string, error) {
+type golang struct{}
+
+func (golang) CreateContainer(ctx context.Context, cli *client.Client, code string) (string, error) {
 	cmd := []string{
 		"sh", "-c", "go build main.go && ./main",
 	}
@@ -44,7 +46,7 @@ func (Go) CreateContainer(ctx context.Context, cli *client.Client, code string) 
 	return body.ID, nil
 }
 
-func (Go) BaseImage() string {
+func (golang) BaseImage() string {
 	return "golang:1.8-alpine"
 }
 
