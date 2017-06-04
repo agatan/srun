@@ -1,0 +1,14 @@
+package: github.com/agatan/sandbox-runner
+import:
+- package: github.com/docker/docker
+  version: ^17.5.0-ce-rc3
+  subpackages:
+  - api/types
+  - api/types/container
+  - api/types/network
+  - client
+- package: github.com/pkg/errors
+  version: ^0.8.0
+- package: golang.org/x/net
+  subpackages:
+  - context
