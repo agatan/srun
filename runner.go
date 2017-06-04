@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
-	"runtime"
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 )
@@ -91,15 +89,6 @@ func (r *Runner) Run(ctx context.Context, langName string, source string) (res *
 	}
 
 	return res, nil
-}
-
-func defaultHostConfig() *container.HostConfig {
-	cfg := new(container.HostConfig)
-	cfg.DiskQuota = 1024 * 64
-	cfg.PidsLimit = 128
-	cfg.CPUPeriod = 100000
-	cfg.CPUQuota = 100000 / (int64(runtime.NumCPU()) - 1)
-	return cfg
 }
 
 func readLogs(ctx context.Context, cli *client.Client, id string, since time.Time) ([]byte, []byte, error) {

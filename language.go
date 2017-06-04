@@ -3,6 +3,7 @@ package srun
 import (
 	"archive/tar"
 	"bytes"
+	"runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -61,4 +62,13 @@ func copyToContainer(ctx context.Context, cli *client.Client, id string, distdir
 		return errors.Wrap(err, "failed to copy source code")
 	}
 	return nil
+}
+
+func defaultHostConfig() *container.HostConfig {
+	cfg := new(container.HostConfig)
+	cfg.DiskQuota = 1024 * 64
+	cfg.PidsLimit = 128
+	cfg.CPUPeriod = 100000
+	cfg.CPUQuota = 100000 / (int64(runtime.NumCPU()) - 1)
+	return cfg
 }
